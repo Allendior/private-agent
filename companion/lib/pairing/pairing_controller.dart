@@ -45,7 +45,7 @@ class PairingController {
   }
 
   Future<void> pair(PairingRecord record) async {
-    if (!_validDeviceId(record.deviceId) || !_validSharedKey(record.sharedKey)) {
+    if (!isValidRecord(record)) {
       throw ArgumentError('invalid pairing record');
     }
     await _store.write(_deviceIdKey, record.deviceId);
@@ -56,6 +56,9 @@ class PairingController {
     await _store.delete(_deviceIdKey);
     await _store.delete(_sharedKeyKey);
   }
+
+  static bool isValidRecord(PairingRecord record) =>
+      _validDeviceId(record.deviceId) && _validSharedKey(record.sharedKey);
 
   static bool _validDeviceId(String? value) =>
       value != null && RegExp(r'^[a-z][a-z0-9-]{2,63}$').hasMatch(value);

@@ -4,7 +4,8 @@ This is a **separate** Flutter Android app, not a new mode inside the inherited 
 
 ## What it does now
 
-- Stores a paired device ID and shared status-proof key through `flutter_secure_storage` (Android Keystore-backed on Android).
+- Stores a paired device ID and shared status-proof key through `flutter_secure_storage` (Android Keystore-backed on Android), with Android backup disabled.
+- Imports an explicit, short-lived, schema-locked one-time pairing payload into secure storage only after the person operating the device presses **Save pairing**.
 - Verifies a signed, unexpired, exactly-one-action `device.status.get` envelope using canonical JSON, HMAC-SHA256, and unpadded base64url.
 - Displays whether the local companion is paired, without rendering its shared key.
 
@@ -17,15 +18,15 @@ This is a **separate** Flutter Android app, not a new mode inside the inherited 
 
 ## Local verification — 2026-08-17
 
-- `flutter test`: **8 passed**
+- `flutter test`: **13 passed**
 - `flutter analyze`: **no issues**
 - `flutter build apk --debug`: **passed**
 - APK: `build/app/outputs/flutter-apk/app-debug.apk`
-- SHA-256: `1d168c141adacd66a83bf57959cde5c3e20299311fb114a788ab1b19b21407e5`
-- Size: `158,838,352 bytes`
+- SHA-256: `f2e0f1a8f46de32e8ba7134a2319ea945e68bc41ea5b8b946dc77bfc31b5ff6f`
 - `aapt dump permissions`: only Android's generated non-exported dynamic-receiver permission; **no Android dangerous permissions and no `INTERNET` permission**.
+- Pixel 4 XL baseline: installed successfully; prior companion version reached the unpaired local screen with no runtime-permission prompt. The updated pairing-import UI is installed but awaiting an awake, unobstructed screen verification.
 
-The APK is build-verified but **not device-tested**. Do not describe it as paired, transport-connected, or able to control a phone.
+Do not describe it as transport-connected or able to control a phone.
 
 ## Next slice
 

@@ -47,4 +47,21 @@ void main() {
     expect(find.text('Paired: pixel-test'), findsOneWidget);
     expect(find.text('0123456789abcdefghijklmnopqrstuvwxyz'), findsNothing);
   });
+
+  testWidgets('imports a one-time pairing payload only after explicit save', (tester) async {
+    final controller = PairingController(MemoryStore());
+    await tester.pumpWidget(MaterialApp(home: CompanionHome(controller: controller)));
+    await tester.pump();
+
+    await tester.tap(find.text('Import one-time pairing'));
+    await tester.pump();
+    await tester.enterText(
+      find.byType(TextField),
+      '''{"version":1,"device_id":"pixel-test","shared_key":"0123456789abcdefghijklmnopqrstuvwxyz","expires_at":4102444800}''',
+    );
+    await tester.tap(find.text('Save pairing'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Paired: pixel-test'), findsOneWidget);
+  });
 }
