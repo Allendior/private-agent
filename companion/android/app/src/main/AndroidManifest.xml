@@ -1,7 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
     <!-- The status-only companion has no network surface. -->
-    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
+    <!-- Required only for the manually pressed private Tailscale HTTPS probe. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <application
         android:label="private_agent_companion"
         android:name="${applicationName}"

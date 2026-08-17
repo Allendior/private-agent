@@ -100,6 +100,46 @@ class FleetControlCliTests(unittest.TestCase):
         self.assertEqual(dispatch.returncode, 2)
         self.assertEqual(json.loads(dispatch.stdout)["code"], "INVALID_ACTION")
 
+    def test_status_activation_and_revoke_manage_separate_owner_only_state(self):
+        status_path = Path(self.temp_directory.name) / "status.json"
+        activate = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "fleet_control",
+                "--status-state-file",
+                str(status_path),
+                "status-activate",
+                "pixel-test",
+            ],
+            capture_output=True,
+            check=False,
+            text=True,
+        )
+        self.assertEqual(activate.returncode, 0, activate.stderr)
+        payload = json.loads(activate.stdout)
+        self.assertEqual(set(payload), {"version", "activation_id", "device_id", "shared_key", "endpoint", "expires_at"})
+        self.assertEqual(payload["device_id"], "pixel-test")
+        self.assertEqual(len(payload["activation_id"]), 32)
+        self.assertEqual(len(payload["shared_key"]), 43)
+
+        revoke = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "fleet_control",
+                "--status-state-file",
+                str(status_path),
+                "status-revoke",
+                "pixel-test",
+            ],
+            capture_output=True,
+            check=False,
+            text=True,
+        )
+        self.assertEqual(revoke.returncode, 0, revoke.stderr)
+        self.assertEqual(json.loads(revoke.stdout), {"revoked": False})
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -7,6 +7,8 @@ from typing import Optional, Sequence
 
 from .dispatcher import dispatch
 from .registry import DeviceRegistry
+from .status_server import create_server
+from .status_transport import STATUS_ENDPOINT, StatusState
 
 
 def _print(value: object) -> None:
@@ -15,7 +17,8 @@ def _print(value: object) -> None:
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Local Android fleet control-plane core")
-    parser.add_argument("--state-file", type=Path, required=True)
+    parser.add_argument("--state-file", type=Path)
+    parser.add_argument("--status-state-file", type=Path)
     subcommands = parser.add_subparsers(dest="command", required=True)
 
     pair_parser = subcommands.add_parser("pair", help="create a local paired-device record")
@@ -25,7 +28,56 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     dispatch_parser = subcommands.add_parser("dispatch", help="validate and sign a local envelope")
     dispatch_parser.add_argument("job_file", type=Path)
 
+    activate_parser = subcommands.add_parser(
+        "status-activate", help="create a 60-second one-time status activation"
+    )
+    activate_parser.add_argument("device_id")
+
+    revoke_parser = subcommands.add_parser(
+        "status-revoke", help="revoke a status device and pending activation"
+    )
+    revoke_parser.add_argument("device_id")
+
+    serve_parser = subcommands.add_parser(
+        "status-serve", help="run the loopback-only status backend"
+    )
+    serve_parser.add_argument("--port", type=int, default=8787)
+
     arguments = parser.parse_args(argv)
+    if arguments.command.startswith("status-"):
+        if arguments.status_state_file is None:
+            parser.error("--status-state-file is required for status commands")
+        status_state = StatusState(arguments.status_state_file)
+        if arguments.command == "status-activate":
+            try:
+                _print(status_state.create_activation(arguments.device_id, STATUS_ENDPOINT))
+            except ValueError as error:
+                _print({"accepted": False, "code": "ACTIVATION_REJECTED", "detail": str(error)})
+                return 2
+            return 0
+        if arguments.command == "status-revoke":
+            try:
+                revoked = status_state.revoke(arguments.device_id)
+            except ValueError as error:
+                _print({"accepted": False, "code": "REVOCATION_REJECTED", "detail": str(error)})
+                return 2
+            _print({"revoked": revoked})
+            return 0
+        try:
+            server = create_server(status_state, port=arguments.port)
+        except (OSError, ValueError) as error:
+            _print({"accepted": False, "code": "SERVER_REJECTED", "detail": str(error)})
+            return 2
+        try:
+            server.serve_forever()
+        except KeyboardInterrupt:
+            pass
+        finally:
+            server.server_close()
+        return 0
+
+    if arguments.state_file is None:
+        parser.error("--state-file is required for pair and dispatch")
     registry = DeviceRegistry(arguments.state_file)
 
     if arguments.command == "pair":

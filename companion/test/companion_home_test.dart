@@ -36,7 +36,7 @@ void main() {
           controller: PairingController(
             MemoryStore({
               'fleet.device_id': 'pixel-test',
-              'fleet.shared_key': '0123456789abcdefghijklmnopqrstuvwxyz',
+              'fleet.shared_key': '0123456789abcdefghijklmnopqrstuvwxyzABCDEFG',
               'fleet.endpoint': 'https://mac-mini-fleet.tailed5697.ts.net/v1/status',
             }),
           ),
@@ -46,7 +46,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('Paired: pixel-test'), findsOneWidget);
-    expect(find.text('0123456789abcdefghijklmnopqrstuvwxyz'), findsNothing);
+    expect(find.text('0123456789abcdefghijklmnopqrstuvwxyzABCDEFG'), findsNothing);
   });
 
   testWidgets('imports a one-time pairing payload only after explicit save', (tester) async {
@@ -56,9 +56,10 @@ void main() {
 
     await tester.tap(find.text('Import one-time pairing'));
     await tester.pump();
+    final expiresAt = DateTime.now().millisecondsSinceEpoch ~/ 1000 + 30;
     await tester.enterText(
       find.byType(TextField),
-      '''{"version":1,"device_id":"pixel-test","shared_key":"0123456789abcdefghijklmnopqrstuvwxyz","endpoint":"https://mac-mini-fleet.tailed5697.ts.net/v1/status","expires_at":4102444800}''',
+      '{"version":1,"activation_id":"0123456789abcdef0123456789abcdef","device_id":"pixel-test","shared_key":"0123456789abcdefghijklmnopqrstuvwxyzABCDEFG","endpoint":"https://mac-mini-fleet.tailed5697.ts.net/v1/status","expires_at":$expiresAt}',
     );
     await tester.tap(find.text('Save pairing'));
     await tester.pumpAndSettle();
