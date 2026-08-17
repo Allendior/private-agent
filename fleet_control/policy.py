@@ -36,6 +36,8 @@ def validate_job(job: Any) -> ValidationResult:
         if not isinstance(action, Mapping):
             return ValidationResult(False, "INVALID_ACTION", "each action must be an object")
         action_type = action.get("type")
+        if not isinstance(action_type, str):
+            return ValidationResult(False, "INVALID_ACTION", "action type must be a string")
         if action_type not in _ALLOWED_ACTIONS:
             return ValidationResult(False, "ACTION_NOT_ALLOWED", str(action_type))
         if action_type == "open_app":

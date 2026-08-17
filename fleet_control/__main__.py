@@ -53,7 +53,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         _print({"accepted": False, "code": "INVALID_JOB_FILE", "detail": str(error)})
         return 2
 
-    result = dispatch(registry, job)
+    try:
+        result = dispatch(registry, job)
+    except ValueError as error:
+        _print({"accepted": False, "code": "REGISTRY_ERROR", "detail": str(error)})
+        return 2
     _print(
         {
             "accepted": result.accepted,

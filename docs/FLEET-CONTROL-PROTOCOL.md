@@ -28,6 +28,12 @@ The pairing token is returned only at pairing time and is persisted only as a SH
 
 `open_app.package` must be syntactically valid and must match the paired device’s exact allowlist. `read_current_screen` has no arguments.
 
+## Envelope wire format
+
+The host controller emits an envelope shaped as `{ "payload": object, "signature": string }`. `payload` is serialized as UTF-8 canonical JSON: object keys sort lexicographically at every depth, array order is preserved, separators are `,` and `:`, and non-ASCII characters are escaped. The signature is `HMAC-SHA256(shared_key_utf8, canonical_payload_utf8)`, encoded with RFC 4648 base64url **without** trailing `=` padding. A verifier must decode base64url, recompute the same HMAC, compare the bytes in constant time, and reject an envelope once `now_seconds >= expires_at`.
+
+The controller currently generates a 300-second lifetime. The pure-Dart verifier intentionally accepts only a separately defined `device.status.get` proof envelope; it does not yet consume controller-generated `open_app`/`read_current_screen` envelopes. That mismatch is deliberate until a reviewed pairing and transport layer exists.
+
 ## Local demonstration
 
 ```bash

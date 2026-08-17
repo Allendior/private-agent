@@ -36,6 +36,20 @@ class DeviceRegistryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "already paired"):
             self.registry.pair("pixel-test", ["com.example.calendar"])
 
+    def test_rejects_insecure_existing_registry_permissions(self):
+        self.state_path.write_text(json.dumps({"devices": {}}))
+        os.chmod(self.state_path, 0o644)
+
+        with self.assertRaisesRegex(ValueError, "owner-only"):
+            self.registry.get("pixel-test")
+
+    def test_rejects_malformed_device_record(self):
+        self.state_path.write_text(json.dumps({"devices": {"pixel-test": {}}}))
+        os.chmod(self.state_path, 0o600)
+
+        with self.assertRaisesRegex(ValueError, "malformed"):
+            self.registry.get("pixel-test")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -60,6 +60,14 @@ class PolicyValidationTests(unittest.TestCase):
         self.assertFalse(result.accepted)
         self.assertEqual(result.code, "INVALID_ACTION")
 
+    def test_rejects_non_string_action_type_without_throwing(self):
+        result = validate_job(
+            {"device_id": "pixel-test", "actions": [{"type": []}]}
+        )
+
+        self.assertFalse(result.accepted)
+        self.assertEqual(result.code, "INVALID_ACTION")
+
 
 if __name__ == "__main__":
     unittest.main()

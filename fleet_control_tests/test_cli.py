@@ -59,6 +59,47 @@ class FleetControlCliTests(unittest.TestCase):
         self.assertEqual(dispatch.returncode, 2)
         self.assertEqual(json.loads(dispatch.stdout)["code"], "ACTION_NOT_ALLOWED")
 
+    def test_dispatch_reports_invalid_non_string_action_type_as_json(self):
+        pair = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "fleet_control",
+                "--state-file",
+                str(self.state_path),
+                "pair",
+                "pixel-test",
+                "--allow-package",
+                "com.example.calendar",
+            ],
+            capture_output=True,
+            check=False,
+            text=True,
+        )
+        self.assertEqual(pair.returncode, 0, pair.stderr)
+        malformed_job = Path(self.temp_directory.name) / "malformed.json"
+        malformed_job.write_text(
+            json.dumps({"device_id": "pixel-test", "actions": [{"type": []}]})
+        )
+
+        dispatch = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "fleet_control",
+                "--state-file",
+                str(self.state_path),
+                "dispatch",
+                str(malformed_job),
+            ],
+            capture_output=True,
+            check=False,
+            text=True,
+        )
+
+        self.assertEqual(dispatch.returncode, 2)
+        self.assertEqual(json.loads(dispatch.stdout)["code"], "INVALID_ACTION")
+
 
 if __name__ == "__main__":
     unittest.main()
