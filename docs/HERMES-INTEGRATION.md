@@ -43,6 +43,16 @@ If direct Hermes control is wanted, build it as a separate reviewed feature:
 - support allowlists, user confirmation for external effects, cancellation, and append-only action audit records;
 - default to disabled, with no background Telegram command execution.
 
-## Current build readiness
+## Build and device readiness (2026-08-17)
 
-This Mac does not currently have Flutter or Dart installed, so no APK build or device test was attempted. Toolchain installation requires explicit approval because it downloads SDK/toolchain components and consumes disk.
+Flutter 3.47.0/Dart 3.13.0, Android SDK platform 36/build-tools 36.0.0, and JDK 17 are now installed and configured. Flutter analytics was disabled. `flutter test` passed four Dart tests and `flutter build apk --debug` produced a debug APK.
+
+The APK permission audit remains a blocker for unattended use: it currently declares broad permissions including Internet, microphone, contacts, calls, SMS sending, package visibility, settings changes, and foreground service. This build is evidence of compilation only—not of safe deployment or real-device behavior. No Android device is attached, no Accessibility permission has been enabled, and no network/Hermes/Cron endpoint has been added.
+
+## v0 control-plane core (2026-08-17)
+
+A host-only reference core lives in `fleet_control/`, with protocol documentation at `docs/FLEET-CONTROL-PROTOCOL.md`. It pairs named devices into a local owner-only registry, validates only the read-only `open_app` and `read_current_screen` action types, checks exact package allowlists, and produces five-minute signed dispatch envelopes. Its tests run with the macOS system Python.
+
+The Android app now also contains a separate pure-Dart `StatusEnvelopeVerifier`. It accepts only a signed, unexpired `device.status.get` envelope and performs no Android action. This is the first companion-side conformance boundary; it remains unconnected to the current broad Accessibility executor.
+
+No transport, Cron/Hermes job adapter, real-device execution, or permission minimization has been completed. Do not interpret a locally created envelope or APK as a command delivered to a phone.

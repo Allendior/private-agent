@@ -1,0 +1,58 @@
+import base64
+import json
+from pathlib import Path
+import tempfile
+import time
+import unittest
+
+from fleet_control.dispatcher import dispatch
+from fleet_control.registry import DeviceRegistry
+
+
+class DispatcherTests(unittest.TestCase):
+    def setUp(self):
+        self.temp_directory = tempfile.TemporaryDirectory()
+        self.registry = DeviceRegistry(Path(self.temp_directory.name) / "devices.json")
+        self.device, _ = self.registry.pair("pixel-test", ["com.example.calendar"])
+
+    def tearDown(self):
+        self.temp_directory.cleanup()
+
+    def test_creates_signed_expiring_envelope_for_allowlisted_open_app(self):
+        result = dispatch(
+            self.registry,
+            {"device_id": "pixel-test", "actions": [{"type": "open_app", "package": "com.example.calendar"}]},
+            now=1_700_000_000,
+        )
+
+        self.assertTrue(result.accepted)
+        self.assertEqual(result.code, "OK")
+        self.assertIsNotNone(result.envelope)
+        envelope = result.envelope
+        self.assertEqual(envelope["payload"]["device_id"], "pixel-test")
+        self.assertEqual(envelope["payload"]["expires_at"], 1_700_000_300)
+        self.assertIn("job_id", envelope["payload"])
+        self.assertTrue(envelope["signature"])
+        base64.urlsafe_b64decode(envelope["signature"] + "===")
+
+    def test_rejects_package_outside_device_allowlist(self):
+        result = dispatch(
+            self.registry,
+            {"device_id": "pixel-test", "actions": [{"type": "open_app", "package": "com.example.mail"}]},
+        )
+
+        self.assertFalse(result.accepted)
+        self.assertEqual(result.code, "PACKAGE_NOT_ALLOWED")
+
+    def test_rejects_unpaired_device(self):
+        result = dispatch(
+            self.registry,
+            {"device_id": "unknown-phone", "actions": [{"type": "read_current_screen"}]},
+        )
+
+        self.assertFalse(result.accepted)
+        self.assertEqual(result.code, "DEVICE_NOT_PAIRED")
+
+
+if __name__ == "__main__":
+    unittest.main()

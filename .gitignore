@@ -46,6 +46,11 @@ app.*.map.json
 
 # Python model training pipeline
 *.py
+# Keep the reviewed fleet control-plane reference source and its tests tracked.
+!fleet_control/
+!fleet_control/**/*.py
+!fleet_control_tests/
+!fleet_control_tests/**/*.py
 *.jsonl
 venv/
 __pycache__/
