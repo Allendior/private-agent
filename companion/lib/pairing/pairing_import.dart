@@ -22,12 +22,19 @@ class PairingImport {
       throw const FormatException('pairing payload must be an object');
     }
     final value = Map<String, dynamic>.from(decoded);
-    const requiredKeys = {'version', 'device_id', 'shared_key', 'expires_at'};
+    const requiredKeys = {
+      'version',
+      'device_id',
+      'shared_key',
+      'endpoint',
+      'expires_at',
+    };
     if (value.keys.toSet().length != requiredKeys.length ||
         !value.keys.toSet().containsAll(requiredKeys) ||
         value['version'] != 1 ||
         value['device_id'] is! String ||
         value['shared_key'] is! String ||
+        value['endpoint'] is! String ||
         value['expires_at'] is! int ||
         value['expires_at'] <= nowSeconds) {
       throw const FormatException('pairing payload is invalid or expired');
@@ -35,6 +42,7 @@ class PairingImport {
     final record = PairingRecord(
       deviceId: value['device_id'] as String,
       sharedKey: value['shared_key'] as String,
+      endpoint: value['endpoint'] as String,
     );
     if (!PairingController.isValidRecord(record)) {
       throw const FormatException('pairing payload has invalid credentials');

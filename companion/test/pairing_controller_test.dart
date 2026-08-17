@@ -30,9 +30,16 @@ void main() {
       const PairingRecord(
         deviceId: 'pixel-test',
         sharedKey: '0123456789abcdefghijklmnopqrstuvwxyz',
+        endpoint: 'https://mac-mini-fleet.tailed5697.ts.net/v1/status',
       ),
     );
 
-    expect(await controller.status(), const PairingStatus.paired('pixel-test'));
+    expect(
+      await controller.status(),
+      const PairingStatus.paired(
+        'pixel-test',
+        'https://mac-mini-fleet.tailed5697.ts.net/v1/status',
+      ),
+    );
   });
 }

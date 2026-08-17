@@ -37,6 +37,7 @@ void main() {
             MemoryStore({
               'fleet.device_id': 'pixel-test',
               'fleet.shared_key': '0123456789abcdefghijklmnopqrstuvwxyz',
+              'fleet.endpoint': 'https://mac-mini-fleet.tailed5697.ts.net/v1/status',
             }),
           ),
         ),
@@ -57,7 +58,7 @@ void main() {
     await tester.pump();
     await tester.enterText(
       find.byType(TextField),
-      '''{"version":1,"device_id":"pixel-test","shared_key":"0123456789abcdefghijklmnopqrstuvwxyz","expires_at":4102444800}''',
+      '''{"version":1,"device_id":"pixel-test","shared_key":"0123456789abcdefghijklmnopqrstuvwxyz","endpoint":"https://mac-mini-fleet.tailed5697.ts.net/v1/status","expires_at":4102444800}''',
     );
     await tester.tap(find.text('Save pairing'));
     await tester.pumpAndSettle();
