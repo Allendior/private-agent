@@ -7,7 +7,7 @@
 The Python package `fleet_control/` is deliberately narrow:
 
 - It registers a named device and its app-package allowlist in an owner-only JSON state file.
-- It accepts only two action types: `open_app` and `read_current_screen`.
+- It accepts three tightly scoped action types: `device.status.get`, `open_app`, and `read_current_screen`.
 - It refuses raw natural-language jobs and rejects every unrecognised action—including messages, posts, purchases, calls, form submission, account changes, and screen-coordinate tapping.
 - It creates an HMAC-SHA256-signed, five-minute dispatch envelope.
 - It does **not** open ports, connect to a phone, call Android Accessibility APIs, schedule cron jobs, invoke an LLM, or enable Telegram polling.
@@ -20,19 +20,18 @@ The pairing token is returned only at pairing time and is persisted only as a SH
 {
   "device_id": "pixel-test",
   "actions": [
-    {"type": "open_app", "package": "com.example.calendar"},
-    {"type": "read_current_screen"}
+    {"type": "device.status.get"}
   ]
 }
 ```
 
-`open_app.package` must be syntactically valid and must match the paired device’s exact allowlist. `read_current_screen` has no arguments.
+`device.status.get` is the only action the isolated Android companion will accept. The host also has inert future-policy actions—`open_app.package` (an exact allowlisted Android package) and `read_current_screen` (no arguments)—but the companion does not yet receive or execute either one.
 
 ## Envelope wire format
 
 The host controller emits an envelope shaped as `{ "payload": object, "signature": string }`. `payload` is serialized as UTF-8 canonical JSON: object keys sort lexicographically at every depth, array order is preserved, separators are `,` and `:`, and non-ASCII characters are escaped. The signature is `HMAC-SHA256(shared_key_utf8, canonical_payload_utf8)`, encoded with RFC 4648 base64url **without** trailing `=` padding. A verifier must decode base64url, recompute the same HMAC, compare the bytes in constant time, and reject an envelope once `now_seconds >= expires_at`.
 
-The controller currently generates a 300-second lifetime. The pure-Dart verifier intentionally accepts only a separately defined `device.status.get` proof envelope; it does not yet consume controller-generated `open_app`/`read_current_screen` envelopes. That mismatch is deliberate until a reviewed pairing and transport layer exists.
+The controller generates a 300-second lifetime. The isolated Dart companion accepts only the host-compatible `device.status.get` request and does not yet receive or execute the host's future `open_app`/`read_current_screen` envelopes.
 
 ## Local demonstration
 

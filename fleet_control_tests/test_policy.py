@@ -26,6 +26,14 @@ class PolicyValidationTests(unittest.TestCase):
         self.assertTrue(result.accepted)
         self.assertEqual(result.code, "OK")
 
+    def test_accepts_status_only_probe_action(self):
+        result = validate_job(
+            {"device_id": "pixel-test", "actions": [{"type": "device.status.get"}]}
+        )
+
+        self.assertTrue(result.accepted)
+        self.assertEqual(result.code, "OK")
+
     def test_rejects_malformed_package(self):
         result = validate_job(
             {

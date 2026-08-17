@@ -10,7 +10,11 @@ from typing import Any, Mapping
 
 
 _PACKAGE_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+$")
-_ALLOWED_ACTIONS = frozenset({"open_app", "read_current_screen"})
+_ALLOWED_ACTIONS = frozenset({
+    "open_app",
+    "read_current_screen",
+    "device.status.get",
+})
 
 
 @dataclass(frozen=True)

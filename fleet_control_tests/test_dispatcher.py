@@ -59,6 +59,19 @@ class DispatcherTests(unittest.TestCase):
         self.assertFalse(result.accepted)
         self.assertEqual(result.code, "PACKAGE_NOT_ALLOWED")
 
+    def test_dispatches_status_probe_without_app_allowlist(self):
+        result = dispatch(
+            self.registry,
+            {"device_id": "pixel-test", "actions": [{"type": "device.status.get"}]},
+            now=1_700_000_000,
+        )
+
+        self.assertTrue(result.accepted)
+        envelope = result.envelope
+        self.assertIsNotNone(envelope)
+        assert envelope is not None
+        self.assertEqual(envelope["payload"]["actions"], [{"type": "device.status.get"}])
+
     def test_rejects_unpaired_device(self):
         result = dispatch(
             self.registry,
