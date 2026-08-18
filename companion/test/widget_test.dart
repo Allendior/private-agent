@@ -22,6 +22,6 @@ void main() {
 
     expect(find.text('PrivateAgent Companion'), findsOneWidget);
     expect(find.text('Not paired'), findsOneWidget);
-    expect(find.text('No active connection'), findsOneWidget);
+    expect(find.text('Outbound poll: host jobs only while app is open'), findsOneWidget);
   });
 }

@@ -152,7 +152,8 @@ class _CompanionHomeState extends State<CompanionHome> {
                   const Text('Outbound poll: host jobs only while app is open'),
                   const SizedBox(height: 20),
                   const Text(
-                    'Allowlisted actions only (status, open_app). '
+                    'Allowlisted actions only (status, open_app, read_current_screen). '
+                    'read_current_screen needs Usage Access. '
                     'No background service, no Accessibility, no LLM control.',
                   ),
                   if (!paired) ...[

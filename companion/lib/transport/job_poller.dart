@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import '../pairing/pairing_controller.dart';
 import '../protocol/status_protocol.dart';
 import '../protocol/strict_json.dart';
+import 'job_executor.dart';
 import 'status_client.dart';
 
 const _requestDomain = 'private-agent/status-request/v1\n';
@@ -27,14 +28,21 @@ class QueuedJob {
 
 /// Result of executing a job on the device.
 class JobExecutionResult {
-  const JobExecutionResult({required this.jobId, required this.status, this.detail});
+  const JobExecutionResult({
+    required this.jobId,
+    required this.status,
+    this.detail,
+    this.screen,
+  });
   final String jobId;
   final String status; // "ok" or "error"
   final String? detail;
+  final Map<String, String>? screen;
 
   Map<String, dynamic> toJson() => {
     'status': status,
     if (detail != null) 'detail': detail,
+    if (screen != null) 'screen': screen,
   };
 }
 
@@ -167,27 +175,8 @@ class JobPoller {
     }
   }
 
-  Future<JobExecutionResult> _executeJob(String jobId, List<Map<String, dynamic>> actions) async {
-    try {
-      for (final action in actions) {
-        final type = action['type'];
-        if (type == 'open_app') {
-          final package = action['package'];
-          if (package is! String) {
-            return JobExecutionResult(jobId: jobId, status: 'error', detail: 'invalid package');
-          }
-          await _platform.invokeMethod('open_app', {'package': package});
-        } else if (type == 'read_current_screen' || type == 'device.status.get') {
-          // Read-only actions — acknowledge without side effects
-          debugPrint('[job-poller] read-only action: $type');
-        } else {
-          return JobExecutionResult(jobId: jobId, status: 'error', detail: 'unknown action: $type');
-        }
-      }
-      return JobExecutionResult(jobId: jobId, status: 'ok');
-    } catch (e) {
-      return JobExecutionResult(jobId: jobId, status: 'error', detail: e.toString());
-    }
+  Future<JobExecutionResult> _executeJob(String jobId, List<Map<String, dynamic>> actions) {
+    return JobExecutor(channel: _platform).execute(jobId, actions);
   }
 
   Future<void> _reportResult(PairingRecord record, String requestId, String jobId, JobExecutionResult result) async {

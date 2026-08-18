@@ -25,8 +25,13 @@ void main() {
     await tester.pump();
 
     expect(find.text('Not paired'), findsOneWidget);
-    expect(find.text('No active connection'), findsOneWidget);
-    expect(find.textContaining('Accessibility'), findsNothing);
+    expect(find.text('Outbound poll: host jobs only while app is open'), findsOneWidget);
+    expect(
+      find.textContaining('Allowlisted actions only (status, open_app, read_current_screen)'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('no Accessibility'), findsOneWidget);
+    expect(find.textContaining('Usage Access'), findsOneWidget);
   });
 
   testWidgets('paired screen shows its device identity but never the key', (tester) async {
