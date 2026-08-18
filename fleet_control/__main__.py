@@ -122,28 +122,28 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if not result.accepted:
         _print({"accepted": False, "code": result.code})
         return 2
+    if result.envelope is None:
+        _print({"accepted": False, "code": "MISSING_ENVELOPE"})
+        return 2
 
     if arguments.command == "dispatch-send":
         # Sign and enqueue the job to the status state
         if arguments.status_state_file is None:
             parser.error("--status-state-file is required for dispatch-send")
         status_state = StatusState(arguments.status_state_file)
-        # Re-sign the job envelope with the status state's shared key (not the registry key)
-        # because the companion only knows the status state key from activation
+        # Re-sign with the status-state shared key (companion key from activation),
+        # not the separate registry signing key.
         device = status_state._read()["devices"].get(job["device_id"])
         if device is None:
             _print({"accepted": False, "code": "DEVICE_NOT_IN_STATUS_STATE"})
             return 2
-        from .status_transport import _signature, REQUEST_DOMAIN
-        import hmac as _hmac, hashlib as _hashlib, base64 as _b64, json as _json
-        shared_key = device["key"]
-        payload = result.envelope["payload"]
-        payload["job_id"] = result.envelope["payload"]["job_id"]  # preserve job_id
-        # Re-sign with the status state shared key using the job domain
-        job_domain = b"private-agent/job-request/v1\n"
-        encoded = _json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
-        sig = _b64.urlsafe_b64encode(_hmac.new(shared_key.encode("utf-8"), job_domain + encoded, _hashlib.sha256).digest()).decode("ascii").rstrip("=")
-        new_envelope = {"payload": payload, "signature": sig}
+        from .status_transport import JOB_REQUEST_DOMAIN, _signature
+
+        payload = dict(result.envelope["payload"])
+        new_envelope = {
+            "payload": payload,
+            "signature": _signature(payload, device["key"], JOB_REQUEST_DOMAIN),
+        }
         status_state.enqueue_job(job["device_id"], new_envelope)
         _print({"accepted": True, "code": "ENQUEUED", "job_id": payload["job_id"]})
         return 0
@@ -152,7 +152,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         {
             "accepted": result.accepted,
             "code": result.code,
-            **({"envelope": result.envelope} if result.envelope else {}),
+            "envelope": result.envelope,
         }
     )
     return 0

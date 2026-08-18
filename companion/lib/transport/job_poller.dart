@@ -134,14 +134,16 @@ class JobPoller {
         final jobSig = jobEnvelope['signature'];
         if (jobPayload is! Map<String, dynamic> || jobSig is! String) continue;
 
-        // The outer poll response is already signature-verified by the
-        // transport. The dispatcher signed the job envelope with the
-        // shared key. We trust the integrity from the outer verification.
-        // Skip inner job envelope re-verification to avoid canonical JSON
-        // serialization mismatches between Dart and Python.
-
         final jobId = jobPayload['job_id'];
         if (jobId is! String) continue;
+
+        // Verify host job envelope with job-request domain before execution.
+        final expectedJobSig = _sign(jobPayload, record.sharedKey, _jobDomain);
+        if (jobSig != expectedJobSig) {
+          debugPrint('[job-poller] job signature mismatch for $jobId');
+          continue;
+        }
+
         final actions = jobPayload['actions'];
         if (actions is! List) continue;
 

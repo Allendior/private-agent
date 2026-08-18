@@ -19,6 +19,7 @@ from typing import Iterator, Optional, cast
 
 REQUEST_DOMAIN = b"private-agent/status-request/v1\n"
 RESPONSE_DOMAIN = b"private-agent/status-response/v1\n"
+JOB_REQUEST_DOMAIN = b"private-agent/job-request/v1\n"
 STATUS_ENDPOINT = "http://192.168.0.196:8787/v1/status"
 _REQUEST_KEYS = {"version", "kind", "request_id", "device_id", "activation_id", "created_at", "expires_at"}
 _RESPONSE_KEYS = {"version", "kind", "request_id", "device_id", "status", "created_at", "expires_at"}
@@ -327,6 +328,7 @@ class StatusState:
             device_id = payload["device_id"]
             activation_id = payload["activation_id"]
             registered = state["devices"].get(device_id)
+            matches = None
             if registered is None:
                 matches = [a for a in state["activations"] if a["activation_id"] == activation_id and a["device_id"] == device_id]
                 if len(matches) != 1 or matches[0]["state"] != "unused" or matches[0]["expires_at"] <= now:
@@ -342,6 +344,7 @@ class StatusState:
             if registered is not None and activation_id != "":
                 raise ProtocolError("activation already consumed")
             if registered is None:
+                assert matches is not None
                 matches[0]["state"] = "consumed"
                 state["devices"][device_id] = {"key": key}
             state["replays"].append({"device_id": device_id, "request_id": payload["request_id"], "expires_at": payload["expires_at"]})

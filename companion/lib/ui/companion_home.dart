@@ -31,7 +31,6 @@ class _CompanionHomeState extends State<CompanionHome> {
   void initState() {
     super.initState();
     _statusFuture = widget.controller.status();
-    // Wire up job execution callback
     widget.jobPoller?.onJobExecuted = (result) {
       if (mounted) {
         setState(() {
@@ -41,6 +40,12 @@ class _CompanionHomeState extends State<CompanionHome> {
         });
       }
     };
+    // Resume polling when already paired (foreground-only timer).
+    _statusFuture.then((status) {
+      if (status.deviceId != null) {
+        widget.jobPoller?.start();
+      }
+    });
   }
 
   Future<void> _showPairingImport() async {
@@ -108,6 +113,9 @@ class _CompanionHomeState extends State<CompanionHome> {
       _probing = false;
       _lastResult = result.success ? 'OK' : 'FAILED: ${result.code}';
     });
+    if (result.success) {
+      widget.jobPoller?.start();
+    }
   }
 
   @override
@@ -141,11 +149,11 @@ class _CompanionHomeState extends State<CompanionHome> {
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                   const SizedBox(height: 8),
-                  const Text('No active connection'),
+                  const Text('Outbound poll: host jobs only while app is open'),
                   const SizedBox(height: 20),
                   const Text(
-                    'This companion can only verify a signed status proof. '
-                    'It does not run in the background or control your phone.',
+                    'Allowlisted actions only (status, open_app). '
+                    'No background service, no Accessibility, no LLM control.',
                   ),
                   if (!paired) ...[
                     const SizedBox(height: 24),
