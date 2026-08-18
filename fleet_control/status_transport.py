@@ -19,7 +19,7 @@ from typing import Iterator, Optional, cast
 
 REQUEST_DOMAIN = b"private-agent/status-request/v1\n"
 RESPONSE_DOMAIN = b"private-agent/status-response/v1\n"
-STATUS_ENDPOINT = "https://mac-mini-fleet.tailed5697.ts.net/v1/status"
+STATUS_ENDPOINT = "http://192.168.0.196:8787/v1/status"
 _REQUEST_KEYS = {"version", "kind", "request_id", "device_id", "activation_id", "created_at", "expires_at"}
 _RESPONSE_KEYS = {"version", "kind", "request_id", "device_id", "status", "created_at", "expires_at"}
 _ENVELOPE_KEYS = {"payload", "signature"}

@@ -105,7 +105,7 @@ class PairingController {
       value == null || RegExp(r'^[0-9a-f]{32}$').hasMatch(value);
 
   static const _trustedEndpoint =
-      'https://mac-mini-fleet.tailed5697.ts.net/v1/status';
+      'http://192.168.0.196:8787/v1/status';
 
   static bool _validEndpoint(String? value) => value == _trustedEndpoint;
 }

@@ -42,6 +42,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "status-serve", help="run the loopback-only status backend"
     )
     serve_parser.add_argument("--port", type=int, default=8787)
+    serve_parser.add_argument("--bind", type=str, default="127.0.0.1",
+                              help="address to bind (default: loopback; use 0.0.0.0 for LAN)")
 
     arguments = parser.parse_args(argv)
     if arguments.command.startswith("status-"):
@@ -64,7 +66,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             _print({"revoked": revoked})
             return 0
         try:
-            server = create_server(status_state, port=arguments.port)
+            server = create_server(status_state, port=arguments.port, bind=arguments.bind)
         except (OSError, ValueError) as error:
             _print({"accepted": False, "code": "SERVER_REJECTED", "detail": str(error)})
             return 2

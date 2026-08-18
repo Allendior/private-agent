@@ -22,7 +22,7 @@ from fleet_control.status_transport import (
 
 
 NOW = 1_700_000_000
-ENDPOINT = "https://mac-mini-fleet.tailed5697.ts.net/v1/status"
+ENDPOINT = "http://192.168.0.196:8787/v1/status"
 DEVICE = "pixel-test"
 KEY = base64.urlsafe_b64encode(bytes(range(32))).decode("ascii").rstrip("=")
 ACTIVATION = "00112233445566778899aabbccddeeff"

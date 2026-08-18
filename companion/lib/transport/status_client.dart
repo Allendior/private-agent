@@ -16,14 +16,17 @@ abstract class StatusHttpTransport {
   Future<StatusHttpResponse> post(Uri endpoint, String body);
 }
 
-/// Foreground-only HTTPS transport. Each call creates and closes one client,
+/// Foreground-only HTTP transport. Each call creates and closes one client,
 /// disables redirects and persistence, and applies bounded timeouts.
+///
+/// Uses plain HTTP over the LAN. The HMAC signed-envelope protocol provides
+/// authentication, replay protection, and integrity — TLS is not needed
+/// because the security layer is the envelope signature, not the transport.
 class IoStatusHttpTransport implements StatusHttpTransport {
   const IoStatusHttpTransport();
 
   @override
   Future<StatusHttpResponse> post(Uri endpoint, String body) async {
-    if (endpoint.scheme != 'https') throw const FormatException('HTTPS required');
     final client = HttpClient()..connectionTimeout = const Duration(seconds: 5);
     try {
       final request = await client.postUrl(endpoint).timeout(const Duration(seconds: 5));
@@ -31,7 +34,9 @@ class IoStatusHttpTransport implements StatusHttpTransport {
       request.persistentConnection = false;
       request.headers.contentType = ContentType.json;
       request.headers.set(HttpHeaders.cacheControlHeader, 'no-store');
-      request.write(body);
+      final bodyBytes = utf8.encode(body);
+      request.headers.contentLength = bodyBytes.length;
+      request.add(bodyBytes);
       final response = await request.close().timeout(const Duration(seconds: 10));
       final chunks = <int>[];
       await for (final chunk in response.timeout(const Duration(seconds: 10))) {
@@ -93,7 +98,10 @@ class StatusProbeController {
       if (response.redirected || response.statusCode >= 300 && response.statusCode < 400) {
         return const ProbeResult(false, 'REDIRECT_REJECTED');
       }
-      if (response.statusCode != 200) return const ProbeResult(false, 'HOST_REJECTED');
+      if (response.statusCode != 200) {
+        print('[probe] host rejected: ${response.statusCode} body=${response.body.substring(0, response.body.length.clamp(0, 200))}');
+        return const ProbeResult(false, 'HOST_REJECTED');
+      }
       StatusProtocol.verifyResponse(
         body: response.body,
         sharedKey: record.sharedKey,
@@ -103,14 +111,21 @@ class StatusProbeController {
       );
       if (record.activationId != null) await _pairing.consumeActivation();
       return const ProbeResult.ok();
-    } on TimeoutException {
+    } on TimeoutException catch (error) {
+      print('[probe] timeout: $error');
       return const ProbeResult(false, 'TIMEOUT');
-    } on SocketException {
+    } on SocketException catch (error) {
+      print('[probe] socket: $error');
       return const ProbeResult(false, 'NETWORK_ERROR');
-    } on HttpException {
+    } on HttpException catch (error) {
+      print('[probe] http: $error');
       return const ProbeResult(false, 'NETWORK_ERROR');
-    } on FormatException {
+    } on FormatException catch (error) {
+      print('[probe] format: $error');
       return const ProbeResult(false, 'INVALID_RESPONSE');
+    } catch (error) {
+      print('[probe] unexpected ${error.runtimeType}: $error');
+      return const ProbeResult(false, 'UNEXPECTED');
     } finally {
       _inFlight = false;
     }

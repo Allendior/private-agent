@@ -2,11 +2,17 @@ import 'package:flutter/material.dart';
 
 import '../pairing/pairing_controller.dart';
 import '../pairing/pairing_import.dart';
+import '../transport/status_client.dart';
 
 class CompanionHome extends StatefulWidget {
-  const CompanionHome({super.key, required this.controller});
+  const CompanionHome({
+    super.key,
+    required this.controller,
+    this.probeController,
+  });
 
   final PairingController controller;
+  final StatusProbeController? probeController;
 
   @override
   State<CompanionHome> createState() => _CompanionHomeState();
@@ -14,6 +20,8 @@ class CompanionHome extends StatefulWidget {
 
 class _CompanionHomeState extends State<CompanionHome> {
   late Future<PairingStatus> _statusFuture;
+  bool _probing = false;
+  String? _lastResult;
 
   @override
   void initState() {
@@ -73,6 +81,21 @@ class _CompanionHomeState extends State<CompanionHome> {
     payloadController.dispose();
   }
 
+  Future<void> _testConnection() async {
+    final probe = widget.probeController;
+    if (probe == null || _probing) return;
+    setState(() {
+      _probing = true;
+      _lastResult = null;
+    });
+    final result = await probe.probe();
+    if (!mounted) return;
+    setState(() {
+      _probing = false;
+      _lastResult = result.success ? 'OK' : 'FAILED: ${result.code}';
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -85,6 +108,7 @@ class _CompanionHomeState extends State<CompanionHome> {
           }
           final status = snapshot.requireData;
           final paired = status.deviceId != null;
+          final canProbe = paired && widget.probeController != null;
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(24),
@@ -107,8 +131,7 @@ class _CompanionHomeState extends State<CompanionHome> {
                   const SizedBox(height: 20),
                   const Text(
                     'This companion can only verify a signed status proof. '
-                    'It does not run in the background, connect to a server, '
-                    'or control your phone.',
+                    'It does not run in the background or control your phone.',
                   ),
                   if (!paired) ...[
                     const SizedBox(height: 24),
@@ -116,6 +139,29 @@ class _CompanionHomeState extends State<CompanionHome> {
                       onPressed: _showPairingImport,
                       child: const Text('Import one-time pairing'),
                     ),
+                  ],
+                  if (canProbe) ...[
+                    const SizedBox(height: 24),
+                    FilledButton(
+                      onPressed: _probing ? null : _testConnection,
+                      child: _probing
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Test private connection'),
+                    ),
+                    if (_lastResult != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        _lastResult!,
+                        style: TextStyle(
+                          color: _lastResult == 'OK' ? Colors.green : Colors.red,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ],
                 ],
               ),

@@ -3,10 +3,13 @@
     <!-- The status-only companion has no network surface. -->
     <!-- Required only for the manually pressed private Tailscale HTTPS probe. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Needed to enumerate and bind to the active VPN (Tailscale) network. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <application
         android:label="private_agent_companion"
         android:name="${applicationName}"
         android:allowBackup="false"
+        android:usesCleartextTraffic="true"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"

@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:private_agent_companion/pairing/pairing_import.dart';
 
 const payload =
-    '{"version":1,"activation_id":"00112233445566778899aabbccddeeff","device_id":"pixel-test","shared_key":"AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8","endpoint":"https://mac-mini-fleet.tailed5697.ts.net/v1/status","expires_at":1700000060}';
+    '{"version":1,"activation_id":"00112233445566778899aabbccddeeff","device_id":"pixel-test","shared_key":"AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8","endpoint":"http://192.168.0.196:8787/v1/status","expires_at":1700000060}';
 
 void main() {
   test('imports a valid unexpired one-time activation payload', () {
@@ -23,7 +23,7 @@ void main() {
 
   test('rejects foreign endpoint, unknown fields, and duplicate keys', () {
     final cases = [
-      payload.replaceFirst('mac-mini-fleet.tailed5697', 'other-tailnet'),
+      payload.replaceFirst('192.168.0.196', '192.168.0.1'),
       payload.replaceFirst('"version":1', '"version":1,"role":"social"'),
       payload.replaceFirst('"version":1', '"version":1,"version":1'),
     ];

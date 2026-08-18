@@ -23,7 +23,7 @@ void main() {
       const PairingRecord(
         deviceId: 'pixel-test',
         sharedKey: 'AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8',
-        endpoint: 'https://mac-mini-fleet.tailed5697.ts.net/v1/status',
+        endpoint: 'http://192.168.0.196:8787/v1/status',
         activationId: '00112233445566778899aabbccddeeff',
       ),
     );
@@ -32,7 +32,7 @@ void main() {
       await controller.status(),
       const PairingStatus.paired(
         'pixel-test',
-        'https://mac-mini-fleet.tailed5697.ts.net/v1/status',
+        'http://192.168.0.196:8787/v1/status',
       ),
     );
     await controller.consumeActivation();

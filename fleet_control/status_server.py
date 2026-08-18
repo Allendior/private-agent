@@ -35,6 +35,9 @@ class _StatusHandler(BaseHTTPRequestHandler):
         self._empty_error(405)
 
     def do_POST(self) -> None:
+        ct = self.headers.get("Content-Type", "")
+        import sys
+        print(f"[DEBUG] POST path={self.path} ct={ct!r} cl={self.headers.get('Content-Length')}", file=sys.stderr, flush=True)
         if self.path != "/v1/status":
             self._empty_error(404)
             return
@@ -76,7 +79,13 @@ class _StatusHandler(BaseHTTPRequestHandler):
         return
 
 
-def create_server(state: StatusState, port: int = 8787) -> ThreadingHTTPServer:
-    """Validate owner-only state, then create (but do not start) a loopback server."""
+def create_server(state: StatusState, port: int = 8787, bind: str = "127.0.0.1") -> ThreadingHTTPServer:
+    """Validate owner-only state, then create (but do not start) a server.
+
+    By default binds to loopback only. Pass ``bind="0.0.0.0"`` or a LAN
+    address to allow local-network connections. The HMAC signed-envelope
+    protocol provides authentication, replay protection, and integrity
+    independent of transport-layer encryption.
+    """
     state.validate()
-    return _LoopbackStatusServer(("127.0.0.1", port), _StatusHandler, state)
+    return _LoopbackStatusServer((bind, port), _StatusHandler, state)
