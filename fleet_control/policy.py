@@ -1,7 +1,7 @@
 """Fail-closed validation for Android fleet job requests.
 
-This module intentionally permits only the read-only v0 action set. It does not
-connect to a phone or execute Android accessibility operations.
+This module permits only the typed v0/v1 action set. It does not connect to a
+phone or execute Android accessibility operations.
 """
 
 from dataclasses import dataclass
@@ -14,6 +14,11 @@ _ALLOWED_ACTIONS = frozenset({
     "open_app",
     "read_current_screen",
     "device.status.get",
+    "tap_label",
+    "tap_xy",
+    "press_back",
+    "press_home",
+    "type_text",
 })
 
 
@@ -24,8 +29,12 @@ class ValidationResult:
     detail: str = ""
 
 
+def _is_int(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
 def validate_job(job: Any) -> ValidationResult:
-    """Validate a v0 job without coercion or implicit permission expansion."""
+    """Validate a typed job without coercion or implicit permission expansion."""
     if not isinstance(job, Mapping):
         return ValidationResult(False, "INVALID_JOB", "job must be an object")
     device_id = job.get("device_id")
@@ -52,7 +61,35 @@ def validate_job(job: Any) -> ValidationResult:
                 or not _PACKAGE_NAME.fullmatch(package)
             ):
                 return ValidationResult(False, "INVALID_ACTION", "open_app needs only a package name")
+        elif action_type == "tap_label":
+            label = action.get("label")
+            if (
+                set(action) != {"type", "label"}
+                or not isinstance(label, str)
+                or not label.strip()
+                or len(label) > 80
+                or "\n" in label
+            ):
+                return ValidationResult(False, "INVALID_ACTION", "tap_label needs only a label")
+        elif action_type == "tap_xy":
+            x = action.get("x")
+            y = action.get("y")
+            if set(action) != {"type", "x", "y"} or not _is_int(x) or not _is_int(y):
+                return ValidationResult(False, "INVALID_ACTION", "tap_xy needs integer x,y")
+            x_int = int(x)
+            y_int = int(y)
+            if not (0 <= x_int <= 10000) or not (0 <= y_int <= 10000):
+                return ValidationResult(False, "INVALID_ACTION", "tap_xy needs integer x,y")
+        elif action_type == "type_text":
+            text = action.get("text")
+            if (
+                set(action) != {"type", "text"}
+                or not isinstance(text, str)
+                or text == ""
+                or len(text) > 500
+            ):
+                return ValidationResult(False, "INVALID_ACTION", "type_text needs text")
         elif set(action) != {"type"}:
-            return ValidationResult(False, "INVALID_ACTION", "read_current_screen has no arguments")
+            return ValidationResult(False, "INVALID_ACTION", f"{action_type} has no arguments")
 
     return ValidationResult(True, "OK")

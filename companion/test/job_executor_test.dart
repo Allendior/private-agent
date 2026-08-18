@@ -42,4 +42,35 @@ void main() {
     expect(result.detail, 'USAGE_ACCESS_REQUIRED');
     expect(result.screen, isNull);
   });
+
+  test('tap_label invokes the platform channel', () async {
+    String? seen;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+      seen = call.method;
+      expect(call.arguments, {'label': 'Search'});
+      return null;
+    });
+
+    final result = await JobExecutor().execute('job-2', [
+      {'type': 'tap_label', 'label': 'Search'},
+    ]);
+
+    expect(result.status, 'ok');
+    expect(seen, 'tap_label');
+  });
+
+  test('tap_label fails closed without accessibility', () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+      throw PlatformException(code: 'ACCESSIBILITY_REQUIRED');
+    });
+
+    final result = await JobExecutor().execute('job-3', [
+      {'type': 'tap_label', 'label': 'Search'},
+    ]);
+
+    expect(result.status, 'error');
+    expect(result.detail, 'ACCESSIBILITY_REQUIRED');
+  });
 }

@@ -1,4 +1,17 @@
+# Argo
+
+Hermes' ship for Android phones. Signed typed jobs. No on-device LLM.
+
+- Companion + host: `companion/` and `fleet_control/`
+- Hermes skill: [`skills/argo/SKILL.md`](skills/argo/SKILL.md)
+- Install skill: `hermes skills install https://raw.githubusercontent.com/Allendior/private-agent/main/skills/argo/SKILL.md`
+
+Do **not** enable the upstream PrivateAgent LLM/Telegram Accessibility app for Hermes. That tree remains below for provenance only and has **no declared upstream license**.
+
+---
+
 # PrivateAgent
+
 
 PrivateAgent is an open-source Android automation agent built with Flutter. It utilizes the DeepSeek API and native Android Accessibility Services to interpret screen layouts and execute multi-step tasks across any installed application via natural language commands.
 

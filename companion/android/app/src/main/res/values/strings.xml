@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="a11y_description">Allows Private Agent to perform allowlisted taps, typing, Back, and Home after you enable it. It does not run an on-device LLM.</string>
+</resources>

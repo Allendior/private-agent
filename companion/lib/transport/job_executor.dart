@@ -33,31 +33,67 @@ class JobExecutor {
             await Future<void>.delayed(const Duration(milliseconds: 800));
           }
         } else if (type == 'read_current_screen') {
-          try {
-            final raw = await _channel.invokeMethod<dynamic>('read_current_screen');
-            if (raw is! Map) {
-              return JobExecutionResult(
-                jobId: jobId,
-                status: 'error',
-                detail: 'INVALID_SCREEN',
-              );
-            }
-            final package = raw['package'];
-            if (package is! String || package.isEmpty) {
-              return JobExecutionResult(
-                jobId: jobId,
-                status: 'error',
-                detail: 'INVALID_SCREEN',
-              );
-            }
-            screen = {'package': package};
-          } on PlatformException catch (e) {
+          final failed = await _invoke(
+            jobId,
+            'read_current_screen',
+            onSuccess: (raw) {
+              if (raw is! Map) return 'INVALID_SCREEN';
+              final package = raw['package'];
+              if (package is! String || package.isEmpty) return 'INVALID_SCREEN';
+              screen = {'package': package};
+              return null;
+            },
+          );
+          if (failed != null) return failed;
+        } else if (type == 'tap_label') {
+          final label = action['label'];
+          if (label is! String || label.isEmpty) {
             return JobExecutionResult(
               jobId: jobId,
               status: 'error',
-              detail: e.code,
+              detail: 'invalid label',
             );
           }
+          final failed = await _invoke(
+            jobId,
+            'tap_label',
+            arguments: {'label': label},
+          );
+          if (failed != null) return failed;
+        } else if (type == 'tap_xy') {
+          final x = action['x'];
+          final y = action['y'];
+          if (x is! int || y is! int) {
+            return JobExecutionResult(
+              jobId: jobId,
+              status: 'error',
+              detail: 'invalid coordinates',
+            );
+          }
+          final failed = await _invoke(
+            jobId,
+            'tap_xy',
+            arguments: {'x': x, 'y': y},
+          );
+          if (failed != null) return failed;
+        } else if (type == 'press_back' || type == 'press_home') {
+          final failed = await _invoke(jobId, type);
+          if (failed != null) return failed;
+        } else if (type == 'type_text') {
+          final text = action['text'];
+          if (text is! String || text.isEmpty) {
+            return JobExecutionResult(
+              jobId: jobId,
+              status: 'error',
+              detail: 'invalid text',
+            );
+          }
+          final failed = await _invoke(
+            jobId,
+            'type_text',
+            arguments: {'text': text},
+          );
+          if (failed != null) return failed;
         } else if (type == 'device.status.get') {
           continue;
         } else {
@@ -75,6 +111,24 @@ class JobExecutor {
         status: 'error',
         detail: e.toString(),
       );
+    }
+  }
+
+  Future<JobExecutionResult?> _invoke(
+    String jobId,
+    String method, {
+    Map<String, Object>? arguments,
+    String? Function(dynamic raw)? onSuccess,
+  }) async {
+    try {
+      final raw = await _channel.invokeMethod<dynamic>(method, arguments);
+      final error = onSuccess?.call(raw);
+      if (error != null) {
+        return JobExecutionResult(jobId: jobId, status: 'error', detail: error);
+      }
+      return null;
+    } on PlatformException catch (e) {
+      return JobExecutionResult(jobId: jobId, status: 'error', detail: e.code);
     }
   }
 }

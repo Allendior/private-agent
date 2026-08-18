@@ -149,13 +149,13 @@ class _CompanionHomeState extends State<CompanionHome> {
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                   const SizedBox(height: 8),
-                  const Text('Outbound poll: host jobs only while app is open'),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Allowlisted actions only (status, open_app, read_current_screen). '
-                    'read_current_screen needs Usage Access. '
-                    'No background service, no Accessibility, no LLM control.',
-                  ),
+                    const Text('Outbound poll while listening service is on'),
+                    const SizedBox(height: 20),
+                    const Text(
+                    'Allowlisted actions: status, open_app, read_current_screen, tap_label, tap_xy, press_back, press_home, type_text. '
+                    'Listening uses a foreground notification. Taps need Accessibility. '
+                    'No on-device LLM. Lock screen fails closed.',
+                    ),
                   if (!paired) ...[
                     const SizedBox(height: 24),
                     OutlinedButton(

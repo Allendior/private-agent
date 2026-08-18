@@ -1,5 +1,6 @@
 package com.allendior.private_agent_companion
 
+import android.accessibilityservice.AccessibilityService
 import android.app.AppOpsManager
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
@@ -17,6 +18,14 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
+                "start_listening" -> {
+                    startForegroundService(Intent(this, CompanionListenService::class.java))
+                    result.success(null)
+                }
+                "stop_listening" -> {
+                    stopService(Intent(this, CompanionListenService::class.java))
+                    result.success(null)
+                }
                 "open_app" -> {
                     val packageName = call.argument<String>("package")
                     if (packageName == null) {
@@ -55,8 +64,49 @@ class MainActivity : FlutterActivity() {
                     }
                     result.success(hashMapOf("package" to pkg))
                 }
+                "tap_label" -> {
+                    val label = call.argument<String>("label")
+                    if (label.isNullOrBlank()) {
+                        result.error("INVALID_LABEL", "label is required", null)
+                        return@setMethodCallHandler
+                    }
+                    completeA11y(result) { it.tapLabel(label) }
+                }
+                "tap_xy" -> {
+                    val x = call.argument<Int>("x")
+                    val y = call.argument<Int>("y")
+                    if (x == null || y == null) {
+                        result.error("INVALID_COORDINATES", "x and y are required", null)
+                        return@setMethodCallHandler
+                    }
+                    completeA11y(result) { it.tapXy(x, y) }
+                }
+                "press_back" -> completeA11y(result) { it.press(AccessibilityService.GLOBAL_ACTION_BACK) }
+                "press_home" -> completeA11y(result) { it.press(AccessibilityService.GLOBAL_ACTION_HOME) }
+                "type_text" -> {
+                    val text = call.argument<String>("text")
+                    if (text.isNullOrEmpty()) {
+                        result.error("INVALID_TEXT", "text is required", null)
+                        return@setMethodCallHandler
+                    }
+                    completeA11y(result) { it.typeText(text) }
+                }
                 else -> result.notImplemented()
             }
+        }
+    }
+
+    private fun completeA11y(result: MethodChannel.Result, action: (CompanionA11yService) -> String?) {
+        val service = CompanionA11yService.instance
+        if (service == null) {
+            result.error("ACCESSIBILITY_REQUIRED", "Enable Private Agent accessibility", null)
+            return
+        }
+        val error = action(service)
+        if (error == null) {
+            result.success(null)
+        } else {
+            result.error(error, error, null)
         }
     }
 

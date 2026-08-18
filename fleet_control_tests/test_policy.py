@@ -76,6 +76,31 @@ class PolicyValidationTests(unittest.TestCase):
         self.assertFalse(result.accepted)
         self.assertEqual(result.code, "INVALID_ACTION")
 
+    def test_accepts_typed_control_actions(self):
+        result = validate_job(
+            {
+                "device_id": "pixel-test",
+                "actions": [
+                    {"type": "tap_label", "label": "Search"},
+                    {"type": "tap_xy", "x": 100, "y": 200},
+                    {"type": "press_back"},
+                    {"type": "press_home"},
+                    {"type": "type_text", "text": "hello"},
+                ],
+            }
+        )
+
+        self.assertTrue(result.accepted)
+        self.assertEqual(result.code, "OK")
+
+    def test_rejects_tap_label_without_label(self):
+        result = validate_job(
+            {"device_id": "pixel-test", "actions": [{"type": "tap_label"}]}
+        )
+
+        self.assertFalse(result.accepted)
+        self.assertEqual(result.code, "INVALID_ACTION")
+
 
 if __name__ == "__main__":
     unittest.main()

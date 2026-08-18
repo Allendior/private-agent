@@ -48,8 +48,7 @@ class JobExecutionResult {
 
 /// Polls the host for pending jobs, executes them, and reports results.
 ///
-/// Runs only while the app is in the foreground. The poll interval is
-/// intentionally short (15s) for responsiveness but can be tuned.
+/// Polls while the listen foreground service keeps the process alive.
 class JobPoller {
   JobPoller({
     required PairingController pairing,
@@ -71,11 +70,13 @@ class JobPoller {
   void start() {
     _timer?.cancel();
     _timer = Timer.periodic(_interval, (_) => _poll());
+    _platform.invokeMethod<void>('start_listening').catchError((_) {});
   }
 
   void stop() {
     _timer?.cancel();
     _timer = null;
+    _platform.invokeMethod<void>('stop_listening').catchError((_) {});
   }
 
   Future<void> pollOnce() => _poll();
