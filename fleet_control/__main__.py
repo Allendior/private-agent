@@ -28,6 +28,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     dispatch_parser = subcommands.add_parser("dispatch", help="validate and sign a local envelope")
     dispatch_parser.add_argument("job_file", type=Path)
 
+    send_parser = subcommands.add_parser(
+        "dispatch-send", help="validate, sign, and enqueue a job to a paired device"
+    )
+    send_parser.add_argument("job_file", type=Path)
+
     activate_parser = subcommands.add_parser(
         "status-activate", help="create a 60-second one-time status activation"
     )
@@ -79,7 +84,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 0
 
     if arguments.state_file is None:
-        parser.error("--state-file is required for pair and dispatch")
+        parser.error("--state-file is required for pair and dispatch commands")
     registry = DeviceRegistry(arguments.state_file)
 
     if arguments.command == "pair":
@@ -100,6 +105,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         )
         return 0
 
+    # Both dispatch and dispatch-send read a job file
     try:
         with arguments.job_file.open(encoding="utf-8") as job_file:
             job = json.load(job_file)
@@ -112,6 +118,36 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     except ValueError as error:
         _print({"accepted": False, "code": "REGISTRY_ERROR", "detail": str(error)})
         return 2
+
+    if not result.accepted:
+        _print({"accepted": False, "code": result.code})
+        return 2
+
+    if arguments.command == "dispatch-send":
+        # Sign and enqueue the job to the status state
+        if arguments.status_state_file is None:
+            parser.error("--status-state-file is required for dispatch-send")
+        status_state = StatusState(arguments.status_state_file)
+        # Re-sign the job envelope with the status state's shared key (not the registry key)
+        # because the companion only knows the status state key from activation
+        device = status_state._read()["devices"].get(job["device_id"])
+        if device is None:
+            _print({"accepted": False, "code": "DEVICE_NOT_IN_STATUS_STATE"})
+            return 2
+        from .status_transport import _signature, REQUEST_DOMAIN
+        import hmac as _hmac, hashlib as _hashlib, base64 as _b64, json as _json
+        shared_key = device["key"]
+        payload = result.envelope["payload"]
+        payload["job_id"] = result.envelope["payload"]["job_id"]  # preserve job_id
+        # Re-sign with the status state shared key using the job domain
+        job_domain = b"private-agent/job-request/v1\n"
+        encoded = _json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+        sig = _b64.urlsafe_b64encode(_hmac.new(shared_key.encode("utf-8"), job_domain + encoded, _hashlib.sha256).digest()).decode("ascii").rstrip("=")
+        new_envelope = {"payload": payload, "signature": sig}
+        status_state.enqueue_job(job["device_id"], new_envelope)
+        _print({"accepted": True, "code": "ENQUEUED", "job_id": payload["job_id"]})
+        return 0
+
     _print(
         {
             "accepted": result.accepted,
@@ -119,7 +155,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             **({"envelope": result.envelope} if result.envelope else {}),
         }
     )
-    return 0 if result.accepted else 2
+    return 0
 
 
 if __name__ == "__main__":

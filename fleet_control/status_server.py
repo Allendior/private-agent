@@ -36,9 +36,7 @@ class _StatusHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         ct = self.headers.get("Content-Type", "")
-        import sys
-        print(f"[DEBUG] POST path={self.path} ct={ct!r} cl={self.headers.get('Content-Length')}", file=sys.stderr, flush=True)
-        if self.path != "/v1/status":
+        if self.path not in ("/v1/status", "/v1/jobs", "/v1/results"):
             self._empty_error(404)
             return
         if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/json":
@@ -55,8 +53,20 @@ class _StatusHandler(BaseHTTPRequestHandler):
         try:
             body = self.rfile.read(length).decode("utf-8", errors="strict")
             server = cast(_LoopbackStatusServer, self.server)
-            response = handle_status_request(server.status_state, body)
-        except (UnicodeError, ProtocolError, ValueError):
+            if self.path == "/v1/status":
+                response = handle_status_request(server.status_state, body)
+            elif self.path == "/v1/jobs":
+                from .job_transport import handle_job_poll
+                response = handle_job_poll(server.status_state, body)
+            elif self.path == "/v1/results":
+                from .job_transport import handle_job_result
+                response = handle_job_result(server.status_state, body)
+            else:
+                self._empty_error(404)
+                return
+        except (UnicodeError, ProtocolError, ValueError) as e:
+            import sys
+            print(f"[ERROR] {self.path}: {e}", file=sys.stderr, flush=True)
             self._empty_error(400)
             return
         encoded = json.dumps(response, sort_keys=True, separators=(",", ":")).encode("ascii")

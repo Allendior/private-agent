@@ -246,6 +246,112 @@ class StatusState:
             state["replays"].append({"device_id": device_id, "request_id": request_id, "expires_at": expires_at})
             self._write(state)
 
+    # ── Job queue methods ──────────────────────────────────────────
+
+    def enqueue_job(self, device_id: str, envelope: dict, now: Optional[int] = None) -> None:
+        """Add a signed job envelope to the device's pending queue."""
+        now = int(time.time()) if now is None else now
+        with self._exclusive_lock():
+            state = self._read()
+            payload = envelope.get("payload", {})
+            state["jobs"].append({
+                "device_id": device_id,
+                "job_id": payload.get("job_id", ""),
+                "envelope": envelope,
+                "expires_at": payload.get("expires_at", now + 300),
+                "delivered": False,
+            })
+            self._write(state)
+
+    def pending_jobs(self, device_id: str, now: Optional[int] = None) -> list:
+        """Return pending (non-expired, non-delivered) jobs for a device."""
+        now = int(time.time()) if now is None else now
+        with self._exclusive_lock():
+            state = self._read()
+            # Clean up expired jobs
+            state["jobs"] = [j for j in state["jobs"] if j.get("expires_at", 0) > now]
+            self._write(state)
+            return [
+                j["envelope"]
+                for j in state["jobs"]
+                if j["device_id"] == device_id and not j.get("delivered", False) and j.get("expires_at", 0) > now
+            ]
+
+    def mark_job_delivered(self, device_id: str, job_id: str) -> None:
+        """Mark a job as delivered so it won't be returned again."""
+        with self._exclusive_lock():
+            state = self._read()
+            for j in state["jobs"]:
+                if j["device_id"] == device_id and j["job_id"] == job_id:
+                    j["delivered"] = True
+            self._write(state)
+
+    def store_result(self, device_id: str, job_id: str, result: dict, now: Optional[int] = None) -> None:
+        """Store a job execution result from a device."""
+        now = int(time.time()) if now is None else now
+        with self._exclusive_lock():
+            state = self._read()
+            # Remove any previous result for the same job
+            state["results"] = [r for r in state["results"] if not (r["device_id"] == device_id and r["job_id"] == job_id)]
+            state["results"].append({
+                "device_id": device_id,
+                "job_id": job_id,
+                "result": result,
+                "stored_at": now,
+                "expires_at": now + 3600,
+            })
+            # Clean expired
+            state["results"] = [r for r in state["results"] if r.get("expires_at", 0) > now]
+            self._write(state)
+
+    def pending_results(self, device_id: str, now: Optional[int] = None) -> list:
+        """Return stored results for a device (cleared after read)."""
+        now = int(time.time()) if now is None else now
+        with self._exclusive_lock():
+            state = self._read()
+            results = [
+                {"job_id": r["job_id"], "result": r["result"]}
+                for r in state["results"]
+                if r["device_id"] == device_id and r.get("expires_at", 0) > now
+            ]
+            # Clear results that have been read
+            state["results"] = [r for r in state["results"] if r["device_id"] != device_id]
+            self._write(state)
+            return results
+
+    def authenticate_job_poll(self, payload: dict, signature: str, now: int) -> str:
+        """Authenticate a job poll request (same logic as heartbeat but with job.poll kind)."""
+        with self._exclusive_lock():
+            state = self._read()
+            state["replays"] = [r for r in state["replays"] if r["expires_at"] > now]
+            device_id = payload["device_id"]
+            activation_id = payload["activation_id"]
+            registered = state["devices"].get(device_id)
+            if registered is None:
+                matches = [a for a in state["activations"] if a["activation_id"] == activation_id and a["device_id"] == device_id]
+                if len(matches) != 1 or matches[0]["state"] != "unused" or matches[0]["expires_at"] <= now:
+                    raise ProtocolError("invalid or expired activation")
+                key = matches[0]["key"]
+            else:
+                key = registered["key"]
+            expected = _signature(payload, key, REQUEST_DOMAIN)
+            if not hmac.compare_digest(signature, expected):
+                raise ProtocolError("invalid request signature")
+            if any(r["device_id"] == device_id and r["request_id"] == payload["request_id"] for r in state["replays"]):
+                raise ProtocolError("request replay")
+            if registered is not None and activation_id != "":
+                raise ProtocolError("activation already consumed")
+            if registered is None:
+                matches[0]["state"] = "consumed"
+                state["devices"][device_id] = {"key": key}
+            state["replays"].append({"device_id": device_id, "request_id": payload["request_id"], "expires_at": payload["expires_at"]})
+            self._write(state)
+            return key
+
+    def authenticate_job_result(self, payload: dict, signature: str, now: int) -> str:
+        """Authenticate a job result report (same as heartbeat but with job.result kind)."""
+        return self.authenticate_job_poll(payload, signature, now)
+
     @contextmanager
     def _exclusive_lock(self) -> Iterator[None]:
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -261,7 +367,7 @@ class StatusState:
 
     def _read(self) -> dict:
         if not self.path.exists():
-            return {"version": 1, "activations": [], "devices": {}, "replays": []}
+            return {"version": 1, "activations": [], "devices": {}, "replays": [], "jobs": [], "results": []}
         if stat.S_IMODE(self.path.stat().st_mode) != 0o600:
             raise ValueError("status state must be owner-only (0600)")
         try:
@@ -273,9 +379,11 @@ class StatusState:
 
     @staticmethod
     def _validate_state(state: object) -> None:
-        if not isinstance(state, dict) or set(state) != {"version", "activations", "devices", "replays"} or state["version"] != 1:
+        if not isinstance(state, dict) or set(state) != {"version", "activations", "devices", "replays", "jobs", "results"} or state["version"] != 1:
             raise ValueError("status state is malformed")
         if not isinstance(state["activations"], list) or not isinstance(state["devices"], dict) or not isinstance(state["replays"], list):
+            raise ValueError("status state is malformed")
+        if not isinstance(state.get("jobs"), list) or not isinstance(state.get("results"), list):
             raise ValueError("status state is malformed")
         for item in state["activations"]:
             if not isinstance(item, dict) or set(item) != {"activation_id", "device_id", "key", "endpoint", "expires_at", "state"}:
