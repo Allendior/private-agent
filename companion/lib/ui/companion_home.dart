@@ -152,7 +152,7 @@ class _CompanionHomeState extends State<CompanionHome> {
                     const Text('Outbound poll while listening service is on'),
                     const SizedBox(height: 20),
                     const Text(
-                    'Allowlisted actions: status, open_app, read_current_screen, tap_label, tap_xy, press_back, press_home, type_text. '
+                    'Allowlisted actions: status, open_app, read_current_screen, tap_label, tap_xy, press_back, press_home, type_text, set_alarm. '
                     'Listening uses a foreground notification. Taps need Accessibility. '
                     'No on-device LLM. Lock screen fails closed.',
                     ),

@@ -5,6 +5,7 @@ Hermes' ship for Android phones. Signed typed jobs. No on-device LLM.
 - Companion + host: `companion/` and `fleet_control/`
 - Hermes skill: [`skills/argo/SKILL.md`](skills/argo/SKILL.md)
 - Install skill: `hermes skills install https://raw.githubusercontent.com/Allendior/private-agent/main/skills/argo/SKILL.md`
+- Native signed jobs include `set_alarm` (`hour`, `minute`, `label`) through Android's standard Clock intent.
 
 Do **not** enable the upstream PrivateAgent LLM/Telegram Accessibility app for Hermes. That tree remains below for provenance only and has **no declared upstream license**.
 

@@ -54,9 +54,9 @@ class JobPoller {
     required PairingController pairing,
     required StatusHttpTransport transport,
     Duration interval = const Duration(seconds: 15),
-  })  : _pairing = pairing,
-        _transport = transport,
-        _interval = interval;
+  }) : _pairing = pairing,
+       _transport = transport,
+       _interval = interval;
 
   final PairingController _pairing;
   final StatusHttpTransport _transport;
@@ -65,7 +65,9 @@ class JobPoller {
 
   Timer? _timer;
   bool _polling = false;
-  static const _platform = MethodChannel('com.allendior.private_agent_companion/jobs');
+  static const _platform = MethodChannel(
+    'com.allendior.private_agent_companion/jobs',
+  );
 
   void start() {
     _timer?.cancel();
@@ -113,7 +115,9 @@ class JobPoller {
       );
 
       if (response.statusCode != 200) {
-        debugPrint('[job-poller] HTTP ${response.statusCode} from $jobsEndpoint');
+        debugPrint(
+          '[job-poller] HTTP ${response.statusCode} from $jobsEndpoint',
+        );
         return;
       }
 
@@ -137,14 +141,26 @@ class JobPoller {
       debugPrint('[job-poller] received ${jobs.length} jobs');
 
       // Execute each job
-      for (final jobEnvelope in jobs) {
-        if (jobEnvelope is! Map<String, dynamic>) continue;
-        final jobPayload = jobEnvelope['payload'];
+      for (final rawEnvelope in jobs) {
+        final jobEnvelope = _asStringKeyedMap(rawEnvelope);
+        if (jobEnvelope == null) {
+          debugPrint('[job-poller] skipped non-object job envelope');
+          continue;
+        }
+        final jobPayload = _asStringKeyedMap(jobEnvelope['payload']);
         final jobSig = jobEnvelope['signature'];
-        if (jobPayload is! Map<String, dynamic> || jobSig is! String) continue;
+        if (jobPayload == null || jobSig is! String) {
+          debugPrint(
+            '[job-poller] skipped job with invalid payload/signature shape',
+          );
+          continue;
+        }
 
         final jobId = jobPayload['job_id'];
-        if (jobId is! String) continue;
+        if (jobId is! String) {
+          debugPrint('[job-poller] skipped job without string job_id');
+          continue;
+        }
 
         // Verify host job envelope with job-request domain before execution.
         final expectedJobSig = _sign(jobPayload, record.sharedKey, _jobDomain);
@@ -154,16 +170,30 @@ class JobPoller {
         }
 
         final actions = jobPayload['actions'];
-        if (actions is! List) continue;
+        if (actions is! List) {
+          debugPrint('[job-poller] skipped job $jobId without actions list');
+          continue;
+        }
 
         final typedActions = <Map<String, dynamic>>[];
         for (final a in actions) {
-          if (a is Map<String, dynamic>) {
-            typedActions.add(a);
+          final action = _asStringKeyedMap(a);
+          if (action != null) {
+            typedActions.add(action);
           }
         }
+        if (typedActions.isEmpty) {
+          debugPrint('[job-poller] skipped job $jobId with zero typed actions');
+          continue;
+        }
 
+        debugPrint(
+          '[job-poller] executing $jobId actions=${typedActions.length}',
+        );
         final result = await _executeJob(jobId, typedActions);
+        debugPrint(
+          '[job-poller] finished $jobId status=${result.status} detail=${result.detail}',
+        );
         onJobExecuted?.call(result);
         await _reportResult(record, requestId, jobId, result);
       }
@@ -176,11 +206,19 @@ class JobPoller {
     }
   }
 
-  Future<JobExecutionResult> _executeJob(String jobId, List<Map<String, dynamic>> actions) {
+  Future<JobExecutionResult> _executeJob(
+    String jobId,
+    List<Map<String, dynamic>> actions,
+  ) {
     return JobExecutor(channel: _platform).execute(jobId, actions);
   }
 
-  Future<void> _reportResult(PairingRecord record, String requestId, String jobId, JobExecutionResult result) async {
+  Future<void> _reportResult(
+    PairingRecord record,
+    String requestId,
+    String jobId,
+    JobExecutionResult result,
+  ) async {
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     final newRequestId = _generateRequestId();
     final payload = <String, dynamic>{
@@ -199,7 +237,10 @@ class JobPoller {
       'signature': _sign(payload, record.sharedKey, _requestDomain),
     };
 
-    final resultsEndpoint = record.endpoint.replaceAll('/v1/status', '/v1/results');
+    final resultsEndpoint = record.endpoint.replaceAll(
+      '/v1/status',
+      '/v1/results',
+    );
     await _transport.post(Uri.parse(resultsEndpoint), jsonEncode(envelope));
   }
 
@@ -216,7 +257,10 @@ class JobPoller {
   String _sign(Map<String, dynamic> payload, String key, String domain) {
     final keyBytes = base64Url.decode(base64Url.normalize(key));
     final payloadJson = _canonicalJson(payload);
-    final digest = Hmac(sha256, keyBytes).convert(utf8.encode(domain + payloadJson)).bytes;
+    final digest = Hmac(
+      sha256,
+      keyBytes,
+    ).convert(utf8.encode(domain + payloadJson)).bytes;
     return base64UrlEncode(digest).replaceAll('=', '');
   }
 
@@ -224,16 +268,29 @@ class JobPoller {
     return jsonEncode(_canonicalizeValue(value));
   }
 
+  Map<String, dynamic>? _asStringKeyedMap(Object? value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) {
+      return {
+        for (final entry in value.entries)
+          if (entry.key is String) entry.key as String: entry.value,
+      };
+    }
+    return null;
+  }
+
   Object? _canonicalizeValue(Object? value) {
     if (value is Map) {
       final sorted = SplayTreeMap<String, Object?>();
       for (final entry in value.entries) {
-        if (entry.key is! String) throw const FormatException('non-string JSON key');
+        if (entry.key is! String)
+          throw const FormatException('non-string JSON key');
         sorted[entry.key as String] = _canonicalizeValue(entry.value);
       }
       return sorted;
     }
-    if (value is List) return value.map(_canonicalizeValue).toList(growable: false);
+    if (value is List)
+      return value.map(_canonicalizeValue).toList(growable: false);
     return value;
   }
 }

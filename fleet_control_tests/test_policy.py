@@ -101,6 +101,63 @@ class PolicyValidationTests(unittest.TestCase):
         self.assertFalse(result.accepted)
         self.assertEqual(result.code, "INVALID_ACTION")
 
+    def test_accepts_typed_set_alarm_action(self):
+        result = validate_job(
+            {
+                "device_id": "pixel-test",
+                "actions": [
+                    {
+                        "type": "set_alarm",
+                        "hour": 6,
+                        "minute": 30,
+                        "label": "Doraemon wake-up",
+                    }
+                ],
+            }
+        )
+
+        self.assertTrue(result.accepted)
+        self.assertEqual(result.code, "OK")
+
+    def test_rejects_invalid_set_alarm_time(self):
+        for hour, minute in ((-1, 30), (24, 0), (6, -1), (6, 60), (True, 30)):
+            with self.subTest(hour=hour, minute=minute):
+                result = validate_job(
+                    {
+                        "device_id": "pixel-test",
+                        "actions": [
+                            {
+                                "type": "set_alarm",
+                                "hour": hour,
+                                "minute": minute,
+                                "label": "Wake up",
+                            }
+                        ],
+                    }
+                )
+
+                self.assertFalse(result.accepted)
+                self.assertEqual(result.code, "INVALID_ACTION")
+
+    def test_rejects_set_alarm_with_unexpected_arguments(self):
+        result = validate_job(
+            {
+                "device_id": "pixel-test",
+                "actions": [
+                    {
+                        "type": "set_alarm",
+                        "hour": 6,
+                        "minute": 30,
+                        "label": "Wake up",
+                        "skip_ui": False,
+                    }
+                ],
+            }
+        )
+
+        self.assertFalse(result.accepted)
+        self.assertEqual(result.code, "INVALID_ACTION")
+
 
 if __name__ == "__main__":
     unittest.main()

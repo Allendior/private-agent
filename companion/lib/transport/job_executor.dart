@@ -5,8 +5,9 @@ import 'job_poller.dart';
 /// Executes allowlisted companion jobs. Platform work stays on the method channel.
 class JobExecutor {
   JobExecutor({MethodChannel? channel})
-      : _channel = channel ??
-            const MethodChannel('com.allendior.private_agent_companion/jobs');
+    : _channel =
+          channel ??
+          const MethodChannel('com.allendior.private_agent_companion/jobs');
 
   final MethodChannel _channel;
 
@@ -15,7 +16,9 @@ class JobExecutor {
     List<Map<String, dynamic>> actions,
   ) async {
     Map<String, String>? screen;
-    final wantsScreen = actions.any((action) => action['type'] == 'read_current_screen');
+    final wantsScreen = actions.any(
+      (action) => action['type'] == 'read_current_screen',
+    );
     try {
       for (final action in actions) {
         final type = action['type'];
@@ -39,7 +42,8 @@ class JobExecutor {
             onSuccess: (raw) {
               if (raw is! Map) return 'INVALID_SCREEN';
               final package = raw['package'];
-              if (package is! String || package.isEmpty) return 'INVALID_SCREEN';
+              if (package is! String || package.isEmpty)
+                return 'INVALID_SCREEN';
               screen = {'package': package};
               return null;
             },
@@ -92,6 +96,32 @@ class JobExecutor {
             jobId,
             'type_text',
             arguments: {'text': text},
+          );
+          if (failed != null) return failed;
+        } else if (type == 'set_alarm') {
+          final hour = action['hour'];
+          final minute = action['minute'];
+          final label = action['label'];
+          if (hour is! int ||
+              minute is! int ||
+              label is! String ||
+              hour < 0 ||
+              hour > 23 ||
+              minute < 0 ||
+              minute > 59 ||
+              label.trim().isEmpty ||
+              label.length > 80 ||
+              label.contains('\n')) {
+            return JobExecutionResult(
+              jobId: jobId,
+              status: 'error',
+              detail: 'invalid alarm',
+            );
+          }
+          final failed = await _invoke(
+            jobId,
+            'set_alarm',
+            arguments: {'hour': hour, 'minute': minute, 'label': label},
           );
           if (failed != null) return failed;
         } else if (type == 'device.status.get') {

@@ -18,6 +18,7 @@ _ALLOWED_ACTIONS = frozenset({
     "tap_xy",
     "press_back",
     "press_home",
+    "set_alarm",
     "type_text",
 })
 
@@ -31,6 +32,10 @@ class ValidationResult:
 
 def _is_int(value: Any) -> bool:
     return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _is_bounded_int(value: Any, minimum: int, maximum: int) -> bool:
+    return _is_int(value) and minimum <= value <= maximum
 
 
 def validate_job(job: Any) -> ValidationResult:
@@ -89,6 +94,24 @@ def validate_job(job: Any) -> ValidationResult:
                 or len(text) > 500
             ):
                 return ValidationResult(False, "INVALID_ACTION", "type_text needs text")
+        elif action_type == "set_alarm":
+            hour = action.get("hour")
+            minute = action.get("minute")
+            label = action.get("label")
+            if (
+                set(action) != {"type", "hour", "minute", "label"}
+                or not _is_bounded_int(hour, 0, 23)
+                or not _is_bounded_int(minute, 0, 59)
+                or not isinstance(label, str)
+                or not label.strip()
+                or len(label) > 80
+                or "\n" in label
+            ):
+                return ValidationResult(
+                    False,
+                    "INVALID_ACTION",
+                    "set_alarm needs hour 0-23, minute 0-59, and a label",
+                )
         elif set(action) != {"type"}:
             return ValidationResult(False, "INVALID_ACTION", f"{action_type} has no arguments")
 

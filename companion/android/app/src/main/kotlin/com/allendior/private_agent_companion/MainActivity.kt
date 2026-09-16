@@ -7,6 +7,7 @@ import android.app.usage.UsageStatsManager
 import android.content.Intent
 import android.net.Uri
 import android.os.Process
+import android.provider.AlarmClock
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -90,6 +91,41 @@ class MainActivity : FlutterActivity() {
                         return@setMethodCallHandler
                     }
                     completeA11y(result) { it.typeText(text) }
+                }
+                "set_alarm" -> {
+                    val hour = call.argument<Int>("hour")
+                    val minute = call.argument<Int>("minute")
+                    val label = call.argument<String>("label")
+                    if (
+                        hour == null || hour !in 0..23 ||
+                        minute == null || minute !in 0..59 ||
+                        label.isNullOrBlank() || label.length > 80 || label.contains('\n')
+                    ) {
+                        result.error("INVALID_ALARM", "valid hour, minute, and label are required", null)
+                        return@setMethodCallHandler
+                    }
+                    try {
+                        val intent = Intent(AlarmClock.ACTION_SET_ALARM).apply {
+                            putExtra(AlarmClock.EXTRA_HOUR, hour)
+                            putExtra(AlarmClock.EXTRA_MINUTES, minute)
+                            putExtra(AlarmClock.EXTRA_MESSAGE, label)
+                            putExtra(AlarmClock.EXTRA_SKIP_UI, true)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        // Prefer the package that resolves SET_ALARM so Samsung Clock can
+                        // handle the request even when the companion is backgrounded.
+                        val resolved = packageManager.resolveActivity(intent, 0)
+                        if (resolved?.activityInfo != null) {
+                            intent.setClassName(
+                                resolved.activityInfo.packageName,
+                                resolved.activityInfo.name,
+                            )
+                        }
+                        startActivity(intent)
+                        result.success(hashMapOf("scheduled" to true))
+                    } catch (e: Exception) {
+                        result.error("SET_ALARM_FAILED", e.message, null)
+                    }
                 }
                 else -> result.notImplemented()
             }

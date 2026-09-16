@@ -60,7 +60,26 @@ Job file:
 }
 ```
 
-Allowlisted actions: `device.status.get`, `open_app`, `read_current_screen`, `tap_label`, `tap_xy`, `press_back`, `press_home`, `type_text`. Unknown actions fail closed.
+Allowlisted: `device.status.get`, `open_app`, `read_current_screen`, `tap_label`, `tap_xy`, `press_back`, `press_home`, `type_text`, `set_alarm`.
+
+### Set a phone alarm
+
+Use a typed alarm job—never UI coordinates:
+
+```json
+{
+  "device_id": "allen-s25",
+  "actions": [
+    {"type": "set_alarm", "hour": 6, "minute": 30, "label": "Doraemon wake-up"}
+  ]
+}
+```
+
+Dispatch with the normal signed queue, wait for the device result, and verify the
+phone's next-alarm state before reporting success. `hour` is 0–23; `minute` is
+0–59; labels are non-empty, single-line, and at most 80 characters. If a user's
+requested time depends on a claimed work shift, verify the current source-backed
+timetable before choosing the alarm time.
 
 ## Procedure
 
